@@ -1,0 +1,28 @@
+:root {
+  color-scheme: dark;
+  --void: #07060a;
+  --bone: #e9e0cf;
+  --wax: #f3c77a;
+  background: var(--void);
+  color: var(--bone);
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--void);
+}
+
+.placeholder {
+  min-height: 100vh;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  gap: 0.5rem;
+}
+
+.placeholder h1 {
+  color: var(--wax);
+  letter-spacing: 0.2em;
+}

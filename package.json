@@ -1,0 +1,24 @@
+{
+  "name": "darkheaven",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @darkheaven/web dev",
+    "build": "pnpm --filter @darkheaven/web build",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "typecheck": "pnpm -r typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.2",
+    "fast-check": "^4.10.2",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  }
+}
