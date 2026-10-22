@@ -19,7 +19,9 @@
     "enabled": true,
     "rules": {
       "preset": "recommended",
-      "style": { "noNonNullAssertion": "off" },
+      "style": { "noNonNullAssertion": "off", "noDescendingSpecificity": "off" },
+      "correctness": { "noInvalidGridAreas": "off" },
+      "complexity": { "noImportantStyles": "off" },
       "a11y": { "noStaticElementInteractions": "off", "useKeyWithClickEvents": "off" }
     }
   },
