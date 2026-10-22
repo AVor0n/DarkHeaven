@@ -193,7 +193,64 @@ function PathBreaker() {
   );
 }
 
+/** Путь к ассету с учётом base (на GitHub Pages сайт лежит в /DarkHeaven/). */
+export function asset(path: string): string {
+  return `${import.meta.env.BASE_URL}assets/${path}`;
+}
+
+/** Плитки, для которых есть сгенерированная гравюра (docs/spec/05-assets.md §2). */
+const ART: Partial<Record<TileKind, 'circle' | 'square'>> = {
+  key: 'circle',
+  gate: 'square',
+  start: 'circle',
+  waxEater: 'circle',
+};
+
+/**
+ * Гравюра на тёмной подложке. Картинка на чёрном фоне накладывается в режиме
+ * screen: чёрные углы исчезают, остаются только светлые штрихи.
+ */
+function ArtEmblem({ kind, shape }: { kind: TileKind; shape: 'circle' | 'square' }) {
+  return (
+    <g>
+      {shape === 'circle' ? (
+        <circle
+          cx={50}
+          cy={50}
+          r={23}
+          fill="#060508"
+          stroke={BONE}
+          strokeOpacity={0.45}
+          strokeWidth={1}
+        />
+      ) : (
+        <rect
+          x={25}
+          y={25}
+          width={50}
+          height={50}
+          rx={4}
+          fill="#060508"
+          stroke={BONE}
+          strokeOpacity={0.45}
+          strokeWidth={1}
+        />
+      )}
+      <image
+        href={asset(`art/emblem-${kind}.webp`)}
+        x={shape === 'circle' ? 26 : 24}
+        y={shape === 'circle' ? 26 : 24}
+        width={shape === 'circle' ? 48 : 52}
+        height={shape === 'circle' ? 48 : 52}
+        style={{ mixBlendMode: 'screen' }}
+      />
+    </g>
+  );
+}
+
 export function Emblem({ kind }: { kind: TileKind }) {
+  const art = ART[kind];
+  if (art) return <ArtEmblem kind={kind} shape={art} />;
   switch (kind) {
     case 'key':
       return <Key />;

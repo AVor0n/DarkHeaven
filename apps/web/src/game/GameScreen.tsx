@@ -10,6 +10,7 @@ import {
   type TileKind,
 } from '@darkheaven/engine';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { playEvents } from '../audio/sound';
 import { Board } from '../board/Board';
 import { TileSvg } from '../board/Tile';
 import { PRISONER_NAMES, playerName, TILE_NAMES } from '../i18n/ru';
@@ -96,11 +97,13 @@ export function GameScreen({ onMenu }: { onMenu(): void }) {
     setManualFocus(null);
   }, [rev]);
 
-  // Вспышки атак из последней партии событий.
+  // Звуки и вспышки атак из последней партии событий.
   // biome-ignore lint/correctness/useExhaustiveDependencies: только по новой ревизии
   useEffect(() => {
+    const batch = events.slice(batchStart);
+    playEvents(batch);
     const cells = new Set<Cell>();
-    for (const e of events.slice(batchStart)) {
+    for (const e of batch) {
       if (e.type === 'attack') {
         cells.add(e.monsterCell);
         for (const c of e.area) cells.add(c);
@@ -215,6 +218,8 @@ export function GameScreen({ onMenu }: { onMenu(): void }) {
 
   const doApply = useCallback(
     (a: Action) => {
+      // Второе подтверждение до перерисовки относилось бы к уже прошедшему решению.
+      if (useGame.getState().rev !== revRef.current) return;
       setSel(null);
       apply(a);
     },

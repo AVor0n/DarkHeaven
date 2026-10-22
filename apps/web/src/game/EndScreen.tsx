@@ -1,4 +1,5 @@
 import type { GameState } from '@darkheaven/engine';
+import { asset } from '../board/Emblems';
 import { LOSS_REASONS } from '../i18n/ru';
 import type { SavedGame } from '../store/game';
 
@@ -30,6 +31,11 @@ export function EndScreen({
   return (
     <div className="overlay end" role="dialog" aria-modal="true" aria-labelledby="end-title">
       <div className={`end__card ${won ? 'end__card--won' : 'end__card--lost'}`}>
+        <img
+          className="end__art"
+          src={asset(won ? 'art/victory.webp' : 'art/defeat.webp')}
+          alt=""
+        />
         <h2 id="end-title">{won ? 'Врата открыты' : 'Тьма победила'}</h2>
         <p className="end__reason">
           {won

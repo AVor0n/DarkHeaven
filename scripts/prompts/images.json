@@ -1,0 +1,30 @@
+{
+  "model": "nano-banana-2",
+  "style": "White and bone-colored scratchboard engraving on a pure black background, fine hatching and cross-hatching, macabre gothic dungeon mood, high contrast, centered composition, no text, no letters, no frame, no border",
+  "items": {
+    "emblem-key": {
+      "prompt": "An ornate antique iron skeleton key lying diagonally, bow shaped like a small skull, seen from above, isolated emblem filling the center"
+    },
+    "emblem-gate": {
+      "prompt": "A small gothic portal shaped like a screaming skull whose open mouth is an arched doorway into darkness, iron rivets at four corners, isolated emblem seen from the front"
+    },
+    "emblem-waxEater": {
+      "prompt": "A monster that devours candle wax: a whirling vortex of bony clawed hands and dripping melted wax around a toothy maw, seen from above, isolated circular emblem"
+    },
+    "emblem-start": {
+      "prompt": "A circular carved stone rune seal on the floor with a single small candle burning in its center, seen from above, isolated circular emblem"
+    },
+    "menu-bg": {
+      "aspect": "16:9",
+      "prompt": "A vast underground labyrinth of narrow stone corridors dissolving into darkness, seen from a high angle, a few tiny candle flames held by hooded prisoners far apart, crumbling floor tiles falling into a void"
+    },
+    "victory": {
+      "aspect": "3:2",
+      "prompt": "A massive ancient gate swinging open, warm light pouring out of it, four hooded prisoners holding candles and keys stepping through together, silhouettes"
+    },
+    "defeat": {
+      "aspect": "3:2",
+      "prompt": "Four extinguished candles with thin smoke trails rising, the stone labyrinth around them crumbling and swallowed by darkness, clawed shadows reaching in"
+    }
+  }
+}

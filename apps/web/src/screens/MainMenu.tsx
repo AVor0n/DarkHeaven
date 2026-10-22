@@ -1,3 +1,4 @@
+import { asset } from '../board/Emblems';
 import { useGame } from '../store/game';
 
 export type Screen = 'menu' | 'new' | 'game' | 'rules' | 'settings';
@@ -41,6 +42,11 @@ export function MainMenu({ go }: { go(s: Screen): void }) {
   const resume = useGame((s) => s.resume);
   return (
     <div className="menu">
+      <div
+        className="menu__bg"
+        aria-hidden="true"
+        style={{ backgroundImage: `url(${asset('art/menu-bg.webp')})` }}
+      />
       <div className="menu__hero">
         <MenuCandle />
         <h1 className="menu__title">DarkHeaven</h1>
