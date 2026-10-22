@@ -61,6 +61,21 @@
       "use": 2,
       "maxSeconds": 6
     },
+    "herald": {
+      "prompt": "A single distant cracked church bell toll echoing in a stone crypt, ominous, no music",
+      "use": 1,
+      "maxSeconds": 3
+    },
+    "mourner": {
+      "prompt": "A ghostly woman's mournful wailing cry echoing through a cavern, eerie and sorrowful, no music",
+      "use": 1,
+      "maxSeconds": 3.5
+    },
+    "endBearer": {
+      "prompt": "A colossal deep doom bell strike with a low rumbling earthquake underneath, apocalyptic, no music",
+      "use": 1,
+      "maxSeconds": 4
+    },
     "ambient": {
       "loop": true,
       "prompt": "Dark underground dungeon ambience: slow water drips echoing, distant low rumble, faint wind through stone corridors, no music, no melody"

@@ -55,6 +55,7 @@ export function PileCandle({ view }: { view: GameState }) {
       Object.values(r).reduce((a, b) => a + (b ?? 0), 0);
     return sum(plan.pile) + sum(plan.initial);
   }, [view.config]);
+  const heraldsTotal = setupPlan(view.config).pile.herald ?? 0;
   const left = view.pile.length;
   const h = Math.max(0.04, left / Math.max(1, total));
   const waxTop = 70 - 56 * h;
@@ -90,6 +91,14 @@ export function PileCandle({ view }: { view: GameState }) {
         <strong>{left}</strong>
         <span>{plural(left, 'плитка', 'плитки', 'плиток')} в запасе</span>
         {view.lastFlicker && <em>последнее мерцание</em>}
+        {!view.lastFlicker && view.endBearerActive && (
+          <em>Несущий Конец сжигает плитку каждый ход</em>
+        )}
+        {heraldsTotal > 0 && (
+          <span>
+            Предвестников открыто: {view.heraldsRevealed} из {heraldsTotal}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -100,9 +109,11 @@ export function DiscardSummary({ view }: { view: GameState }) {
     label: g.label,
     n: view.discard.filter((t) => g.kinds.includes(view.tiles[t] as TileKind)).length,
   }));
-  const plan = setupPlan(view.config);
-  const gatesTotal = plan.pile.gate ?? 0;
-  const gatesLeft = gatesTotal - (counts[1]?.n ?? 0);
+  const gatesTotal = setupPlan(view.config).pile.gate ?? 0;
+  // Врата могут провалиться в яму, не уходя в сброс, — считаем уцелевшие.
+  const gatesLeft =
+    view.board.filter((bt) => bt && !bt.pit && view.tiles[bt.tile] === 'gate').length +
+    view.pile.filter((t) => view.tiles[t] === 'gate').length;
   const need = view.prisoners.filter((p) => !p.hasKey).length;
   const keys = keysAvailable(view);
   return (

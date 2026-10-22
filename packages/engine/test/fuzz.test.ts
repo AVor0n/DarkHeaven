@@ -19,14 +19,15 @@ function checkInvariants(state: GameState): void {
       cells.set(p.cell, (cells.get(p.cell) ?? 0) + 1);
     }
   }
+  // Поражение может наступить посреди обрушения, пока узники ещё не упали.
   for (const [cell, n] of cells) {
-    if (n > 1) expect(isGate(state, cell)).toBe(true);
+    if (n > 1 && state.phase !== 'lost') expect(isGate(state, cell)).toBe(true);
   }
   if (state.phase === 'play') {
     // Между действиями на поле только освещённые плитки (кроме хранителей ключей).
     const lit = litCells(state);
     state.board.forEach((bt, c) => {
-      if (bt && !lit.has(c) && monsterAt(state, c) !== 'keyKeeper') {
+      if (bt && !lit.has(c) && monsterAt(state, c) !== 'keyKeeper' && !bt.mournerPit) {
         throw new Error(`Неосвещённая плитка в клетке ${c}`);
       }
     });
@@ -94,6 +95,19 @@ describe('фаззинг случайными партиями', () => {
     { players: 5 },
     { players: 4, difficulty: { chaos: true, keyDelta: 2 } },
     { players: 4, difficulty: { removeGate: true, keyDelta: -1 } },
+    { players: 4, advanced: true },
+    { players: 5, advanced: true, extraSpawn: true, inevitables: 3 },
+    { players: 2, mourner: true, inevitables: 2 },
+    { players: 4, advanced: true, mourner: true, endBearer: true },
+    { players: 3, lightEaters: 4, pathBreakers: 2 },
+    {
+      players: 4,
+      advanced: true,
+      lightEaters: 4,
+      pathBreakers: 2,
+      expansionAddOnly: true,
+      endBearer: true,
+    },
   ];
   for (const config of configs) {
     it(`партии доигрываются до конца: ${JSON.stringify(config)}`, () => {

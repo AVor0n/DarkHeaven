@@ -204,7 +204,47 @@ const ART: Partial<Record<TileKind, 'circle' | 'square'>> = {
   gate: 'square',
   start: 'circle',
   waxEater: 'circle',
+  keyKeeper: 'circle',
+  darkSpawn: 'circle',
+  herald: 'circle',
+  inevitable: 'circle',
+  lightEater: 'circle',
+  pathBreaker: 'circle',
 };
+
+export function hasArt(kind: TileKind): boolean {
+  return kind in ART;
+}
+
+/**
+ * Метка направления поверх гравюры: она поворачивается вместе с плиткой,
+ * а сама гравюра остаётся прямой.
+ */
+export function DirMarker({ kind }: { kind: TileKind }) {
+  if (kind === 'keyKeeper') {
+    // Пасть на юге в повороте 0; «верх» — безопасная сторона — отмечен дугой.
+    return (
+      <g>
+        <path d="M33 75q17 13 34 0" fill="#000" stroke="var(--ember)" strokeWidth={2} />
+        <path
+          d="M37 77l3 5 3-5 3 6 3-6 3 6 3-6 3 5 3-5"
+          fill="none"
+          stroke={BONE}
+          strokeWidth={1.2}
+        />
+        <path d="M40 24q10-5 20 0" fill="none" stroke={BONE} strokeWidth={1.4} opacity={0.6} />
+      </g>
+    );
+  }
+  if (kind === 'pathBreaker') {
+    return (
+      <g stroke="var(--ember)" strokeWidth={2.4} strokeLinecap="round">
+        <path d="M44 22l6-6 6 6M44 78l6 6 6-6" fill="none" />
+      </g>
+    );
+  }
+  return null;
+}
 
 /**
  * Гравюра на тёмной подложке. Картинка на чёрном фоне накладывается в режиме

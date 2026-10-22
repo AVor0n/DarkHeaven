@@ -25,6 +25,27 @@
     "defeat": {
       "aspect": "3:2",
       "prompt": "Four extinguished candles with thin smoke trails rising, the stone labyrinth around them crumbling and swallowed by darkness, clawed shadows reaching in"
+    },
+    "emblem-keyKeeper": {
+      "prompt": "A hunched gaunt guardian creature curled around a large antique key it clutches in its long claws, wide fanged maw, seen from above, symmetrical, isolated circular emblem"
+    },
+    "emblem-darkSpawn": {
+      "prompt": "A writhing knot of black tentacles bursting out of a cracked floor, four deep cracks running diagonally to the corners, seen from above, isolated circular emblem"
+    },
+    "emblem-herald": {
+      "prompt": "A tall hooded robed figure with no face holding a bell, ominous omen messenger, seen from the front, isolated circular emblem"
+    },
+    "emblem-inevitable": {
+      "prompt": "A colossal armored skeletal knight's helmet with glowing empty eye slits and a crown of spikes, seen from the front, symmetrical, isolated circular emblem"
+    },
+    "emblem-lightEater": {
+      "prompt": "A moth-like creature with huge dusty wings swallowing a tiny candle flame with its proboscis, seen from above, symmetrical, isolated circular emblem"
+    },
+    "emblem-pathBreaker": {
+      "prompt": "A massive stone fist smashing the floor, jagged cracks radiating outwards, flying rubble, seen from above, symmetrical, isolated circular emblem"
+    },
+    "mourner": {
+      "prompt": "A giant weeping veiled woman's face made of shadow, long tears of darkness streaming down, wide open sorrowful mouth like an abyss, seen from the front, symmetrical, fills the frame"
     }
   }
 }

@@ -19,7 +19,7 @@ import {
 import { animMs } from '../store/settings';
 import { LightCanvas } from './LightCanvas';
 import { CandleToken } from './Prisoner';
-import { TileSvg } from './Tile';
+import { MournerSvg, TileSvg } from './Tile';
 
 export type TargetKind =
   | 'move'
@@ -87,6 +87,7 @@ const CellView = memo(function CellView({
   inLine,
   flash,
   endangered,
+  mourner,
 }: {
   view: GameState;
   cell: Cell;
@@ -98,6 +99,8 @@ const CellView = memo(function CellView({
   inLine: boolean;
   flash: boolean;
   endangered: Set<number>;
+  /** Положение клетки внутри ямы Плакальщика. */
+  mourner: readonly [number, number] | null;
 }) {
   const bt = view.board[cell];
   const prisoners = view.prisoners.filter((p) => p.cell === cell);
@@ -107,6 +110,11 @@ const CellView = memo(function CellView({
       {bt && kind && (
         <div className="cell__tile" key={bt.tile}>
           <TileSvg kind={kind} rot={bt.rot} pit={bt.pit} seed={bt.tile} keyTaken={bt.keyTaken} />
+        </div>
+      )}
+      {bt?.mournerPit && mourner && (
+        <div className="cell__tile cell__tile--mourner">
+          <MournerSvg dx={mourner[0]} dy={mourner[1]} />
         </div>
       )}
       {ghost && (
@@ -202,6 +210,18 @@ export function Board(props: BoardProps) {
   }, [props.lines, n]);
 
   const ghostCell = props.ghost?.cell ?? null;
+  // Левый верхний угол ямы Плакальщика (жетон не переносится через край).
+  const mournerOrigin = useMemo(() => {
+    let ox = n;
+    let oy = n;
+    view.board.forEach((bt, c) => {
+      if (!bt?.mournerPit) return;
+      const [x, y] = cellXY(n, c);
+      ox = Math.min(ox, x);
+      oy = Math.min(oy, y);
+    });
+    return ox < n ? ([ox, oy] as const) : null;
+  }, [view.board, n]);
   const cells = useMemo(() => Array.from({ length: n * n }, (_, i) => i), [n]);
   const copies = [0, 1, 2];
 
@@ -254,6 +274,11 @@ export function Board(props: BoardProps) {
                       inLine={lineCells.has(cell)}
                       flash={props.flash.has(cell)}
                       endangered={props.endangered}
+                      mourner={
+                        mournerOrigin && view.board[cell]?.mournerPit
+                          ? [x - mournerOrigin[0], y - mournerOrigin[1]]
+                          : null
+                      }
                     />
                   </button>
                 );

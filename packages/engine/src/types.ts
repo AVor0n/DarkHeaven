@@ -33,7 +33,7 @@ export type MonsterKind =
 export type PrisonerColor = 'red' | 'yellow' | 'green' | 'blue' | 'purple';
 
 export interface BoardTile {
-  /** Id физической плитки (индекс в GameState.tiles). */
+  /** Id физической плитки (индекс в GameState.tiles); −1 — клетка ямы Плакальщика. */
   tile: number;
   rot: Rot;
   /** Плитка перевёрнута стороной с ямой. */
@@ -189,7 +189,13 @@ export type Decision =
   | { kind: 'forcedMove'; prisoner: number; moves: MoveOption[] }
   | { kind: 'flickerDiscard'; prisoner: number; cells: Cell[]; canKeepFlame: boolean }
   | { kind: 'mournerPlacement'; prisoner: number; heraldCell: Cell; origins: Cell[] }
-  | { kind: 'lightEaterTarget'; prisoner: number; targets: number[] };
+  | {
+      kind: 'lightEaterTarget';
+      prisoner: number;
+      /** Клетка пожирателя света (null — вытянут при «остаться»). */
+      cell: Cell | null;
+      targets: number[];
+    };
 
 export type Action =
   | { type: 'placeStart'; cell: Cell; rot: Rot }
@@ -235,6 +241,7 @@ export type GameEvent =
   | { type: 'keyTaken'; prisoner: number; cell: Cell }
   | { type: 'keyGiven'; from: number; to: number }
   | { type: 'heraldSetAside'; tile: number; count: number }
+  | { type: 'lightEaten'; cell: Cell | null; prisoner: number | null }
   | { type: 'mournerPlaced'; origin: Cell; cells: Cell[] }
   | { type: 'mournerPitRemoved'; cells: Cell[] }
   | { type: 'endBearerArrived' }

@@ -45,6 +45,16 @@ export const LOSS_REASONS: Record<LossReason, string> = {
 
 const DIR_WORDS = ['на север', 'на восток', 'на юг', 'на запад'];
 
+const PIT_CAUSES: Record<
+  Extract<GameEvent, { type: 'pitOpened' }>['cause'],
+  (cell: string) => string
+> = {
+  spawn: (c) => `Исчадие тьмы: ${c} проваливается в яму.`,
+  keeper: (c) => `Хранитель в ${c} рассыпался — на его месте яма.`,
+  pathBreaker: (c) => `Прерыватель пути обрушил ${c}.`,
+  lightEater: (c) => `Пожиратель света в ${c} уходит в яму.`,
+};
+
 export function cellName(size: number, cell: number): string {
   const [x, y] = cellXY(size, cell);
   return `${String.fromCharCode(65 + x)}${y + 1}`;
@@ -91,7 +101,7 @@ export function formatEvent(e: GameEvent, state: GameState): string | null {
     case 'crumbled':
       return `Проход в ${cn(e.cell)} обрушился в яму.`;
     case 'pitOpened':
-      return `В ${cn(e.cell)} разверзлась яма.`;
+      return PIT_CAUSES[e.cause](cn(e.cell));
     case 'fell':
       return `${pn(e.prisoner)} падает во тьму!`;
     case 'fallLineChosen':
@@ -115,7 +125,13 @@ export function formatEvent(e: GameEvent, state: GameState): string | null {
       return `${capitalize(tn(e.tile))} в ${cn(e.monsterCell)} атакует! Под удар попадает: ${who}.`;
     }
     case 'hit':
-      return `${pn(e.prisoner)}: −${e.discard} из запаса.`;
+      return e.discard > 0
+        ? `${pn(e.prisoner)}: −${e.discard} из запаса.`
+        : `${pn(e.prisoner)}: пол уходит из-под ног.`;
+    case 'lightEaten':
+      return e.prisoner === null
+        ? 'Пожиратель света не нашёл одинокой свечи.'
+        : `Пожиратель света гасит одинокую свечу: ${pn(e.prisoner)}.`;
     case 'extinguished':
       return `Свеча узника ${pn(e.prisoner)} гаснет.`;
     case 'relit':
@@ -127,7 +143,7 @@ export function formatEvent(e: GameEvent, state: GameState): string | null {
     case 'heraldSetAside':
       return `Предвестник отложен (${e.count}).`;
     case 'mournerPlaced':
-      return 'Явился Плакальщик!';
+      return `Явился Плакальщик! Его тень накрыла ${cn(e.cells[0] ?? e.origin)}–${cn(e.cells[8] ?? e.origin)}.`;
     case 'mournerPitRemoved':
       return 'Яма Плакальщика растворилась во тьме.';
     case 'endBearerArrived':

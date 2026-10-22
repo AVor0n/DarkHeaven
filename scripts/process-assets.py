@@ -44,13 +44,30 @@ def vignette(im: Image.Image) -> Image.Image:
     return ImageChops.multiply(im, Image.merge("RGB", (mask, mask, mask)))
 
 
+def blacken_background(im: Image.Image) -> Image.Image:
+    """Если нейросеть нарисовала эмблему на белом фоне — залить фон чёрным от углов."""
+    w, h = im.size
+    corners = [(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)]
+    if min(sum(im.getpixel(c)) / 3 for c in corners) < 200:
+        return im
+    im = im.copy()
+    for c in corners:
+        ImageDraw.floodfill(im, c, (0, 0, 0), thresh=60)
+    return im
+
+
+# Эмблемы и жетоны: квадрат на чёрном с затемнёнными краями (имя → сторона).
+TOKENS = {"mourner": 512}
+
+
 def process_images() -> None:
     ART.mkdir(parents=True, exist_ok=True)
     for src in sorted((RAW / "images").glob("*.png")):
         name = src.stem
         im = Image.open(src).convert("RGB")
-        if name.startswith("emblem-"):
-            im = vignette(crop_to_content(im)).resize((256, 256), Image.LANCZOS)
+        if name.startswith("emblem-") or name in TOKENS:
+            side = TOKENS.get(name, 256)
+            im = vignette(crop_to_content(blacken_background(im))).resize((side, side), Image.LANCZOS)
             im.save(ART / f"{name}.webp", "WEBP", quality=84, method=6)
         else:
             width = WIDE.get(name, 1200)
