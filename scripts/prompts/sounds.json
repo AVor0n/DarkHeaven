@@ -1,0 +1,73 @@
+{
+  "model": "V6",
+  "items": {
+    "step": {
+      "prompt": "A single soft footstep on damp stone in a dungeon, short, close, no music",
+      "use": 1,
+      "maxSeconds": 0.6
+    },
+    "place": {
+      "prompt": "A heavy stone tile slid into place on a stone floor, short low thud and scrape, no music",
+      "use": 2,
+      "maxSeconds": 1.2
+    },
+    "crumble": {
+      "prompt": "Old stone floor cracking and collapsing into a deep pit, rocks tumbling down into darkness, no music",
+      "use": 1,
+      "maxSeconds": 3
+    },
+    "fall": {
+      "prompt": "A body falling into a bottomless abyss, rushing air whoosh fading away, distant faint impact, no music",
+      "use": 1,
+      "maxSeconds": 3
+    },
+    "monster": {
+      "prompt": "A horrifying wet growl and shriek of a creature lunging out of darkness, clawing swipe, no music",
+      "use": 2,
+      "maxSeconds": 2.2
+    },
+    "extinguish": {
+      "prompt": "A candle flame blown out, soft puff and a faint hiss of smoke, quiet, no music",
+      "use": 2,
+      "maxSeconds": 1.3
+    },
+    "relight": {
+      "prompt": "A match striking and a candle wick igniting with a soft warm whoosh, no music",
+      "use": 2,
+      "maxSeconds": 2
+    },
+    "key": {
+      "prompt": "An old iron key picked up from stone, short metallic jingle, no music",
+      "use": 1,
+      "maxSeconds": 1.5
+    },
+    "resolve": {
+      "prompt": "One deep slow heartbeat thump with soft dark reverb, no music",
+      "use": 1,
+      "maxSeconds": 1.0
+    },
+    "flicker": {
+      "prompt": "A dying candle flame sputtering and crackling, with a low ominous drone swelling underneath",
+      "use": 1,
+      "maxSeconds": 4
+    },
+    "win": {
+      "prompt": "A huge iron gate creaking open, chains rattling, then a warm hopeful choir chord rising",
+      "use": 1,
+      "maxSeconds": 6
+    },
+    "lose": {
+      "prompt": "A deep ominous drone and cold wind howling as darkness falls, sorrowful low strings fading out",
+      "use": 2,
+      "maxSeconds": 6
+    },
+    "ambient": {
+      "loop": true,
+      "prompt": "Dark underground dungeon ambience: slow water drips echoing, distant low rumble, faint wind through stone corridors, no music, no melody"
+    },
+    "menu": {
+      "kind": "music",
+      "prompt": "Dark ambient instrumental, slow solo cello over low drones and distant choir, candlelit dungeon, melancholic and mysterious, sparse"
+    }
+  }
+}

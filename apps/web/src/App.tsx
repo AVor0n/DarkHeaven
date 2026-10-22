@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { applyVolumes, setBackground } from './audio/sound';
 import { SvgDefs } from './board/Tile';
 import { GameScreen } from './game/GameScreen';
 import { MainMenu, type Screen } from './screens/MainMenu';
@@ -21,6 +22,20 @@ export function App() {
   useEffect(() => {
     document.documentElement.dataset.anim = anim;
   }, [anim]);
+
+  useEffect(() => {
+    setBackground(screen === 'game' ? 'game' : 'menu');
+  }, [screen]);
+
+  useEffect(
+    () =>
+      useSettings.subscribe((s, prev) => {
+        if (s.muted !== prev.muted || s.music !== prev.music || s.ambient !== prev.ambient) {
+          applyVolumes();
+        }
+      }),
+    [],
+  );
 
   return (
     <>
