@@ -46,7 +46,7 @@ export function App() {
       )}
       {screen === 'rules' && <Rules onBack={() => setScreen('menu')} />}
       {screen === 'settings' && (
-        <div className="page">
+        <main className="page">
           <header className="page__header">
             <button type="button" className="btn btn--ghost" onClick={() => setScreen('menu')}>
               ← Назад
@@ -54,7 +54,7 @@ export function App() {
             <h1>Настройки</h1>
           </header>
           <SettingsPanel />
-        </div>
+        </main>
       )}
       {screen === 'game' && (
         <GameScreen

@@ -41,7 +41,7 @@ export function MainMenu({ go }: { go(s: Screen): void }) {
   const saved = useGame((s) => s.saved);
   const resume = useGame((s) => s.resume);
   return (
-    <div className="menu">
+    <main className="menu">
       <div
         className="menu__bg"
         aria-hidden="true"
@@ -79,6 +79,6 @@ export function MainMenu({ go }: { go(s: Screen): void }) {
       <p className="menu__credits">
         Фанатская веб-версия по мотивам настольной игры «Обитель тьмы». Весь арт и тексты свои.
       </p>
-    </div>
+    </main>
   );
 }

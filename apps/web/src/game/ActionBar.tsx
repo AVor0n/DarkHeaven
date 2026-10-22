@@ -80,7 +80,9 @@ export function ActionBar(props: ActionBarProps) {
           {multi && <> · {playerName(view.config.playerNames, decider)}</>}
         </span>
       </div>
-      <p className="actionbar__prompt">{prompt(d, view)}</p>
+      <p className="actionbar__prompt" aria-live="polite">
+        {prompt(d, view)}
+      </p>
       {props.preview && !props.hardcore && (
         <ul className="actionbar__preview">
           {props.preview.map((l) => (

@@ -159,7 +159,7 @@ export function NewGame({ onStart, onBack }: { onStart(): void; onBack(): void }
   };
 
   return (
-    <div className="page">
+    <main className="page">
       <header className="page__header">
         <button type="button" className="btn btn--ghost" onClick={onBack}>
           ← Назад
@@ -357,6 +357,6 @@ export function NewGame({ onStart, onBack }: { onStart(): void; onBack(): void }
           </button>
         </div>
       </form>
-    </div>
+    </main>
   );
 }
