@@ -3,7 +3,15 @@ import { listActions } from '../src/actions';
 import { cellAt } from '../src/board';
 import { createInitialState, Game } from '../src/game';
 import { createRng } from '../src/rng';
-import type { Action, Decision, GameState, Rot, TileKind } from '../src/types';
+import type {
+  Action,
+  Decision,
+  FallLine,
+  GameConfig,
+  GameState,
+  Rot,
+  TileKind,
+} from '../src/types';
 
 const TOKENS: Record<string, [TileKind, Rot, boolean?]> = {
   '│': ['straight', 0],
@@ -21,11 +29,18 @@ const TOKENS: Record<string, [TileKind, Rot, boolean?]> = {
   G: ['gate', 0],
   W: ['waxEater', 0],
   I: ['inevitable', 0],
+  // Хранитель ключа: рот на юг, «верх» на север.
+  H: ['keyKeeper', 0],
+  // Прерыватель пути: лица на север и юг / на восток и запад.
+  P: ['pathBreaker', 0],
+  Q: ['pathBreaker', 1],
   O: ['cross', 0, true],
 };
 
 export interface PrisonerSpec {
   at: [number, number] | null;
+  /** Узник падает вдоль этой линии (приземлится в свой ход). */
+  fall?: FallLine;
   lit?: boolean;
   resolve?: number;
   hasKey?: boolean;
@@ -39,6 +54,7 @@ export interface ScenarioSpec {
   pile?: TileKind[];
   active?: number;
   players?: number;
+  config?: Partial<GameConfig>;
 }
 
 /** Собрать партию с заданным полем в фазе 'play'. */
@@ -48,7 +64,7 @@ export function scenario(spec: ScenarioSpec): Game {
     .split('\n')
     .map((r) => r.trim().split(/\s+/));
   const size = rows.length;
-  const base = createInitialState({ players: spec.players ?? 4 }, 'scenario');
+  const base = createInitialState({ players: spec.players ?? 4, ...spec.config }, 'scenario');
   const tiles: TileKind[] = [];
   const board: GameState['board'] = Array.from({ length: size * size }, () => null);
   rows.forEach((row, y) => {
@@ -71,7 +87,7 @@ export function scenario(spec: ScenarioSpec): Game {
     id: i,
     color: base.prisoners[i]?.color ?? 'red',
     cell: p.at ? cellAt(size, p.at[0], p.at[1]) : null,
-    fall: null,
+    fall: p.fall ?? null,
     lit: p.lit ?? true,
     resolve: p.resolve ?? 1,
     hasKey: p.hasKey ?? false,
@@ -129,10 +145,10 @@ export function playRandom(game: Game, seed: string, maxSteps = 5000): number {
   return steps;
 }
 
-/** Общее число плиток во всех зонах неизменно. */
+/** Общее число плиток во всех зонах неизменно (жетон Плакальщика — не плитка). */
 export function tileCount(state: GameState): number {
   return (
-    state.board.filter((b) => b !== null).length +
+    state.board.filter((b) => b !== null && b.tile >= 0).length +
     state.pile.length +
     state.discard.length +
     state.aside.length

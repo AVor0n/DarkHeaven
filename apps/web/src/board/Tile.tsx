@@ -1,6 +1,6 @@
 import { type Rot, TILE_KINDS, type TileKind } from '@darkheaven/engine';
 import { memo } from 'react';
-import { DIRECTIONAL, Emblem } from './Emblems';
+import { asset, DIRECTIONAL, DirMarker, Emblem, hasArt } from './Emblems';
 import { pitRim, tileGeometry } from './tileArt';
 
 /** Общие градиенты и текстуры для всех плиток; рендерится один раз на страницу. */
@@ -92,6 +92,7 @@ export const TileSvg = memo(function TileSvg({ kind, rot, pit, seed, keyTaken }:
   const def = TILE_KINDS[kind];
   const geo = tileGeometry(def.exits, seed, def.crumbling);
   const directional = DIRECTIONAL.has(kind);
+  const art = hasArt(kind);
   const dimEmblem = kind === 'key' && keyTaken;
   return (
     <svg viewBox="0 0 100 100" className="tile-svg" aria-hidden="true">
@@ -110,13 +111,46 @@ export const TileSvg = memo(function TileSvg({ kind, rot, pit, seed, keyTaken }:
             strokeLinejoin="round"
           />
         )}
-        {directional && <Emblem kind={kind} />}
+        {directional && (art ? <DirMarker kind={kind} /> : <Emblem kind={kind} />)}
       </g>
-      {!directional && (
+      {(!directional || art) && (
         <g opacity={dimEmblem ? 0.25 : 1}>
           <Emblem kind={kind} />
         </g>
       )}
+    </svg>
+  );
+});
+
+/**
+ * Клетка ямы Плакальщика: часть общего рисунка 3×3. dx, dy — положение
+ * клетки внутри жетона.
+ */
+export const MournerSvg = memo(function MournerSvg({ dx, dy }: { dx: number; dy: number }) {
+  return (
+    <svg viewBox={`${dx * 100} ${dy * 100} 100 100`} className="tile-svg" aria-hidden="true">
+      <rect width={300} height={300} fill="url(#dh-stone-grad)" />
+      <rect width={300} height={300} fill="url(#dh-stone-noise)" />
+      <g transform="translate(150 150) scale(3.6) translate(-50 -50)">
+        <path d={pitRim(777)} fill="url(#dh-hole)" stroke="#9a8aa8" strokeWidth={0.5} />
+        <path
+          d={pitRim(778)}
+          fill="none"
+          stroke="#9a8aa8"
+          strokeWidth={0.3}
+          opacity={0.5}
+          transform="translate(50 50) scale(0.78) translate(-50 -50)"
+        />
+      </g>
+      <image
+        href={asset('art/mourner.webp')}
+        x={45}
+        y={45}
+        width={210}
+        height={210}
+        opacity={0.8}
+        style={{ mixBlendMode: 'screen' }}
+      />
     </svg>
   );
 });

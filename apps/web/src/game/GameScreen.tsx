@@ -7,6 +7,7 @@ import {
   previewMove,
   previewStay,
   randomSeed,
+  squareCells,
   type TileKind,
 } from '@darkheaven/engine';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -186,6 +187,12 @@ export function GameScreen({ onMenu }: { onMenu(): void }) {
   }, [view, hardcore, showAll, ghost, pending, hover]);
 
   const danger = useMemo(() => {
+    // Плакальщик: показать квадрат 3×3 под выбранным углом.
+    if (pending?.kind === 'mournerPlacement' && view && previewCell !== null) {
+      return pending.origins.includes(previewCell)
+        ? new Set(squareCells(view.size, previewCell))
+        : EMPTY;
+    }
     if (!preview) return EMPTY;
     const out = new Set<Cell>();
     for (const a of preview.pv.attacks) {
@@ -193,12 +200,17 @@ export function GameScreen({ onMenu }: { onMenu(): void }) {
       for (const c of a.area) out.add(c);
     }
     return out;
-  }, [preview]);
+  }, [preview, pending, view, previewCell]);
 
-  const endangered = useMemo(
-    () => (preview ? new Set(preview.pv.hits.map((h) => h.prisoner)) : EMPTY),
-    [preview],
-  );
+  const endangered = useMemo(() => {
+    if (pending?.kind === 'lightEaterTarget') return new Set(pending.targets);
+    if (pending?.kind === 'mournerPlacement' && view) {
+      return new Set(
+        view.prisoners.filter((p) => p.cell !== null && danger.has(p.cell)).map((p) => p.id),
+      );
+    }
+    return preview ? new Set(preview.pv.hits.map((h) => h.prisoner)) : EMPTY;
+  }, [preview, pending, view, danger]);
 
   const lines = useMemo(() => {
     if (pending?.kind !== 'fallLine') return [];

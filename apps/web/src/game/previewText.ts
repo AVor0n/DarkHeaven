@@ -42,10 +42,16 @@ export function describePreview(
     const hits = pv.hits.filter((h) => h.monsterCell === a.monsterCell);
     const who = hits.length
       ? hits
-          .map((h) => `${pn(h.prisoner)} −${h.amount}${h.dodgeable ? ' (можно −2)' : ''}`)
+          .map((h) => {
+            const loss = h.amount > 0 ? ` −${h.amount}${h.dodgeable ? ' (можно −2)' : ''}` : '';
+            return `${pn(h.prisoner)}${loss}${h.drops ? ' и падает' : ''}`;
+          })
           .join(', ')
       : 'никого не заденет';
     out.push({ tone: 'bad', text: `${capitalize(name)} в ${cn(a.monsterCell)} атакует: ${who}.` });
+    if (kind && view.tiles[kind.tile] === 'pathBreaker') {
+      out.push({ tone: 'bad', text: 'Весь ряд под ударом прерывателя провалится в ямы.' });
+    }
   }
   if (pv.pileLoss > 0) {
     out.push({

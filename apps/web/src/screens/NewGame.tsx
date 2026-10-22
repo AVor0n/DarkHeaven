@@ -1,6 +1,13 @@
-import { COLORS, defaultControllers, type GameConfig, randomSeed } from '@darkheaven/engine';
-import { useState } from 'react';
-import { PRISONER_NAMES, playerName } from '../i18n/ru';
+import {
+  COLORS,
+  defaultControllers,
+  type GameConfig,
+  randomSeed,
+  setupPlan,
+  type TileKind,
+} from '@darkheaven/engine';
+import { type ReactNode, useState } from 'react';
+import { PRISONER_NAMES, playerName, TILE_NAMES } from '../i18n/ru';
 import { useGame } from '../store/game';
 import { type HintsMode, useSettings } from '../store/settings';
 import { readJson, writeJson } from '../store/storage';
@@ -13,6 +20,14 @@ interface Form {
   keyDelta: number;
   removeGate: boolean;
   chaos: boolean;
+  advanced: boolean;
+  extraSpawn: boolean;
+  inevitables: number;
+  mourner: boolean;
+  endBearer: boolean;
+  lightEaters: number;
+  pathBreakers: number;
+  addOnly: boolean;
 }
 
 const DEFAULT_FORM: Form = {
@@ -21,7 +36,100 @@ const DEFAULT_FORM: Form = {
   keyDelta: 0,
   removeGate: false,
   chaos: false,
+  advanced: false,
+  extraSpawn: false,
+  inevitables: 0,
+  mourner: false,
+  endBearer: false,
+  lightEaters: 0,
+  pathBreakers: 0,
+  addOnly: false,
 };
+
+function toConfig(form: Form): GameConfig {
+  return {
+    players: form.players,
+    playerNames: form.names
+      .slice(0, form.players)
+      .map((n, i) => n.trim() || playerName(undefined, i)),
+    difficulty: { keyDelta: form.keyDelta, removeGate: form.removeGate, chaos: form.chaos },
+    advanced: form.advanced,
+    extraSpawn: form.advanced && form.extraSpawn,
+    inevitables: form.inevitables,
+    mourner: form.mourner,
+    endBearer: form.endBearer,
+    lightEaters: form.lightEaters,
+    pathBreakers: form.pathBreakers,
+    expansionAddOnly: form.addOnly,
+  };
+}
+
+/** Порядок видов в сводке состава запаса. */
+const PILE_ORDER: TileKind[] = [
+  'key',
+  'keyKeeper',
+  'gate',
+  'waxEater',
+  'darkSpawn',
+  'inevitable',
+  'herald',
+  'lightEater',
+  'pathBreaker',
+];
+
+function pileSummary(config: GameConfig): string {
+  const plan = setupPlan(config);
+  const total = Object.values(plan.pile).reduce((a, b) => a + (b ?? 0), 0);
+  const parts = PILE_ORDER.flatMap((k) => {
+    const n = plan.pile[k] ?? 0;
+    return n > 0 ? [`${TILE_NAMES[k]} ×${n}`] : [];
+  });
+  return `В запасе ${total} плиток: ${parts.join(', ')}, остальное — проходы.`;
+}
+
+function Choice<T extends string | number>({
+  value,
+  options,
+  onChange,
+}: {
+  value: T;
+  options: { v: T; l: string }[];
+  onChange(v: T): void;
+}) {
+  return (
+    <div className="segmented">
+      {options.map((o) => (
+        <button
+          type="button"
+          key={o.v}
+          className={`segmented__item ${value === o.v ? 'is-on' : ''}`}
+          aria-pressed={value === o.v}
+          onClick={() => onChange(o.v)}
+        >
+          {o.l}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Toggle({
+  checked,
+  onChange,
+  children,
+}: {
+  checked: boolean;
+  onChange(v: boolean): void;
+  children: ReactNode;
+}) {
+  return (
+    <label className="toggle">
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <span className="toggle__box" aria-hidden="true" />
+      <span>{children}</span>
+    </label>
+  );
+}
 
 function distribution(players: number, names: string[]): string[] {
   const ctrl = defaultControllers(players);
@@ -46,14 +154,7 @@ export function NewGame({ onStart, onBack }: { onStart(): void; onBack(): void }
 
   const start = () => {
     writeJson(KEY, form);
-    const config: GameConfig = {
-      players: form.players,
-      playerNames: form.names
-        .slice(0, form.players)
-        .map((n, i) => n.trim() || playerName(undefined, i)),
-      difficulty: { keyDelta: form.keyDelta, removeGate: form.removeGate, chaos: form.chaos },
-    };
-    newGame(config, seed.trim() || randomSeed());
+    newGame(toConfig(form), seed.trim() || randomSeed());
     onStart();
   };
 
@@ -130,79 +231,102 @@ export function NewGame({ onStart, onBack }: { onStart(): void; onBack(): void }
 
         <fieldset className="field">
           <legend>Правила</legend>
-          <div className="segmented">
-            <button type="button" className="segmented__item is-on" aria-pressed="true">
-              Базовые
-            </button>
-            <button type="button" className="segmented__item" disabled title="Скоро">
-              Расширенные — скоро
-            </button>
-          </div>
+          <Choice
+            value={form.advanced ? 'adv' : 'base'}
+            options={[
+              { v: 'base', l: 'Базовые' },
+              { v: 'adv', l: 'Расширенные' },
+            ]}
+            onChange={(v) => patch({ advanced: v === 'adv' })}
+          />
+          <p className="field__hint">
+            {form.advanced
+              ? 'Ключи охраняют хранители, а исчадия тьмы обрушивают диагонали в ямы.'
+              : 'Ключи лежат на фрагментах, из монстров — только пожиратели воска.'}
+          </p>
+          {form.advanced && (
+            <Toggle checked={form.extraSpawn} onChange={(v) => patch({ extraSpawn: v })}>
+              Третье исчадие тьмы
+            </Toggle>
+          )}
+        </fieldset>
+
+        <fieldset className="field">
+          <legend>Боссы</legend>
+          <p className="field__label">Неотвратимые</p>
+          <Choice
+            value={form.inevitables}
+            options={[
+              { v: 0, l: 'Нет' },
+              { v: 2, l: 'Два' },
+              { v: 3, l: 'Три' },
+            ]}
+            onChange={(v) => patch({ inevitables: v })}
+          />
+          <Toggle checked={form.mourner} onChange={(v) => patch({ mourner: v })}>
+            Плакальщик
+            <small>второй предвестник накрывает поле ямой 3×3</small>
+          </Toggle>
+          <Toggle checked={form.endBearer} onChange={(v) => patch({ endBearer: v })}>
+            Несущий Конец
+            <small>после пятого предвестника запас тает каждый ход</small>
+          </Toggle>
+        </fieldset>
+
+        <fieldset className="field">
+          <legend>Набор монстров</legend>
+          <p className="field__label">Пожиратели света</p>
+          <Choice
+            value={form.lightEaters}
+            options={[0, 1, 2, 3, 4].map((v) => ({ v, l: v ? String(v) : 'Нет' }))}
+            onChange={(v) => patch({ lightEaters: v })}
+          />
+          <p className="field__label">Прерыватели пути</p>
+          <Choice
+            value={form.pathBreakers}
+            options={[0, 1, 2].map((v) => ({ v, l: v ? String(v) : 'Нет' }))}
+            onChange={(v) => patch({ pathBreakers: v })}
+          />
+          <Toggle checked={form.addOnly} onChange={(v) => patch({ addOnly: v })}>
+            Добавить без замены
+            <small>новые монстры не вытесняют пожирателей воска — сложнее</small>
+          </Toggle>
+          <p className="field__hint">Фанатское дополнение по мотивам оригинала.</p>
         </fieldset>
 
         <fieldset className="field">
           <legend>Сложность</legend>
-          <div className="segmented">
-            {[
+          <Choice
+            value={form.keyDelta}
+            options={[
               { v: 2, l: '+2 ключа' },
               { v: 1, l: '+1 ключ' },
               { v: 0, l: 'Стандарт' },
               { v: -1, l: '−1 ключ' },
-            ].map((o) => (
-              <button
-                type="button"
-                key={o.v}
-                className={`segmented__item ${form.keyDelta === o.v ? 'is-on' : ''}`}
-                aria-pressed={form.keyDelta === o.v}
-                onClick={() => patch({ keyDelta: o.v })}
-              >
-                {o.l}
-              </button>
-            ))}
-          </div>
-          <label className="toggle">
-            <input
-              type="checkbox"
-              checked={form.removeGate}
-              onChange={(e) => patch({ removeGate: e.target.checked })}
-            />
-            <span className="toggle__box" aria-hidden="true" />
-            <span>Убрать одни врата</span>
-          </label>
-          <label className="toggle">
-            <input
-              type="checkbox"
-              checked={form.chaos}
-              onChange={(e) => patch({ chaos: e.target.checked })}
-            />
-            <span className="toggle__box" aria-hidden="true" />
-            <span>
-              Хаос
-              <small>два Т-образных прохода заменяются разрушающимися</small>
-            </span>
-          </label>
+            ]}
+            onChange={(v) => patch({ keyDelta: v })}
+          />
+          <Toggle checked={form.removeGate} onChange={(v) => patch({ removeGate: v })}>
+            Убрать одни врата
+          </Toggle>
+          <Toggle checked={form.chaos} onChange={(v) => patch({ chaos: v })}>
+            Хаос
+            <small>два Т-образных прохода заменяются разрушающимися</small>
+          </Toggle>
         </fieldset>
 
         <fieldset className="field">
           <legend>Подсказки</legend>
-          <div className="segmented">
-            {(
+          <Choice
+            value={hints}
+            options={
               [
                 { v: 'normal', l: 'Обычные' },
                 { v: 'hardcore', l: 'Хардкор' },
               ] as { v: HintsMode; l: string }[]
-            ).map((o) => (
-              <button
-                type="button"
-                key={o.v}
-                className={`segmented__item ${hints === o.v ? 'is-on' : ''}`}
-                aria-pressed={hints === o.v}
-                onClick={() => setSettings({ hints: o.v })}
-              >
-                {o.l}
-              </button>
-            ))}
-          </div>
+            }
+            onChange={(v) => setSettings({ hints: v })}
+          />
         </fieldset>
 
         <fieldset className="field">
@@ -224,6 +348,8 @@ export function NewGame({ onStart, onBack }: { onStart(): void; onBack(): void }
             Одинаковый расклад даёт одинаковый порядок плиток — можно переиграть партию с друзьями.
           </p>
         </fieldset>
+
+        <p className="form__summary">{pileSummary(toConfig(form))}</p>
 
         <div className="form__actions">
           <button type="submit" className="btn btn--primary btn--big">

@@ -178,8 +178,11 @@ export function sightLine(state: GameState, monsterCell: Cell): LineCell[] {
   return out;
 }
 
-/** Зона атаки монстра. */
-export function attackArea(state: GameState, monsterCell: Cell): LineCell[] {
+/**
+ * Зона атаки монстра. axis переопределяет направление прерывателя пути
+ * (при приземлении он бьёт вдоль линии падения).
+ */
+export function attackArea(state: GameState, monsterCell: Cell, axis?: Dir): LineCell[] {
   const monster = monsterAt(state, monsterCell);
   if (monster === 'inevitable') {
     const out: LineCell[] = [];
@@ -194,7 +197,7 @@ export function attackArea(state: GameState, monsterCell: Cell): LineCell[] {
   }
   if (monster === 'pathBreaker') {
     const bt = tileAt(state, monsterCell) as BoardTile;
-    const d = bt.rot as number as Dir;
+    const d = axis ?? (bt.rot as number as Dir);
     const out: LineCell[] = [];
     let cur = monsterCell;
     for (let step = 1; step < state.size; step++) {
@@ -247,6 +250,7 @@ export function computeChain(
   state: GameState,
   provoked: Cell[],
   inert: ReadonlySet<Cell> = new Set(),
+  axes: ReadonlyMap<Cell, Dir> = new Map(),
 ): AttackChain {
   const monsters: Cell[] = [];
   const areas = new Map<Cell, Cell[]>();
@@ -259,7 +263,7 @@ export function computeChain(
     if (!kind || sightDirs(state, m).length === 0) continue;
     seen.add(m);
     monsters.push(m);
-    const area = attackArea(state, m);
+    const area = attackArea(state, m, axes.get(m));
     areas.set(m, uniqueCells(area.map((lc) => lc.cell)));
     for (const lc of area) {
       if (seen.has(lc.cell) || queue.includes(lc.cell)) continue;
@@ -323,4 +327,59 @@ export function reachable(state: GameState, from: Cell): Set<Cell> {
     }
   }
   return seen;
+}
+
+/** Клетка — часть ямы Плакальщика (жетон, а не плитка). */
+export function isMournerPit(bt: BoardTile | null): boolean {
+  return !!bt?.mournerPit;
+}
+
+/** Клетки на диагоналях до края поля, без переноса (исчадие тьмы). */
+export function diagonalCells(size: number, cell: Cell): Cell[] {
+  const out: Cell[] = [];
+  for (const [dx, dy] of [
+    [1, 1],
+    [1, -1],
+    [-1, 1],
+    [-1, -1],
+  ] as const) {
+    for (let k = 1; k < size; k++) {
+      const c = neighborNoWrap(size, cell, dx * k, dy * k);
+      if (c === null) break;
+      out.push(c);
+    }
+  }
+  return out;
+}
+
+/** Левые верхние углы квадратов 3×3 внутри поля, накрывающих клетку (жетон Плакальщика). */
+export function squareOrigins(size: number, cell: Cell): Cell[] {
+  const [x, y] = cellXY(size, cell);
+  const out: Cell[] = [];
+  for (let oy = Math.max(0, y - 2); oy <= Math.min(y, size - 3); oy++) {
+    for (let ox = Math.max(0, x - 2); ox <= Math.min(x, size - 3); ox++) out.push(oy * size + ox);
+  }
+  return out;
+}
+
+export function squareCells(size: number, origin: Cell): Cell[] {
+  const [x, y] = cellXY(size, origin);
+  const out: Cell[] = [];
+  for (let dy = 0; dy < 3; dy++)
+    for (let dx = 0; dx < 3; dx++) out.push(cellAt(size, x + dx, y + dy));
+  return out;
+}
+
+/**
+ * Узники с горящей свечой, рядом с которыми (ортогонально, с учётом тора,
+ * независимо от проходов) и на чьей клетке нет других узников (трактовка E4).
+ */
+export function isolatedPrisoners(state: GameState): number[] {
+  return state.prisoners
+    .filter((p) => {
+      if (p.cell === null || !p.lit) return false;
+      const near = new Set([p.cell, ...DIRS.map((d) => neighbor(state.size, p.cell as Cell, d))]);
+      return !state.prisoners.some((o) => o.id !== p.id && o.cell !== null && near.has(o.cell));
+    })
+    .map((p) => p.id);
 }

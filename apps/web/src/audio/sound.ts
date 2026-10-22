@@ -15,7 +15,10 @@ export type Sfx =
   | 'resolve'
   | 'flicker'
   | 'win'
-  | 'lose';
+  | 'lose'
+  | 'herald'
+  | 'mourner'
+  | 'endBearer';
 
 const SFX: Sfx[] = [
   'step',
@@ -30,6 +33,9 @@ const SFX: Sfx[] = [
   'flicker',
   'win',
   'lose',
+  'herald',
+  'mourner',
+  'endBearer',
 ];
 
 function src(name: string): string[] {
@@ -119,6 +125,10 @@ const EVENT_SFX: Partial<Record<GameEvent['type'], Sfx>> = {
   keyGiven: 'key',
   resolveGained: 'resolve',
   lastFlicker: 'flicker',
+  lightEaten: 'extinguish',
+  heraldSetAside: 'herald',
+  mournerPlaced: 'mourner',
+  endBearerArrived: 'endBearer',
   won: 'win',
   lost: 'lose',
 };

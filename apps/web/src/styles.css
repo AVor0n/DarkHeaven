@@ -270,6 +270,23 @@ h3 {
   font-size: 0.9rem;
 }
 
+.field__label {
+  margin: 0.7rem 0 0.35rem;
+  color: var(--bone-dim);
+  font-size: 0.9rem;
+}
+
+.field__label:first-of-type {
+  margin-top: 0;
+}
+
+.form__summary {
+  margin: 0;
+  color: var(--bone-dim);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
 .segmented {
   display: flex;
   flex-wrap: wrap;

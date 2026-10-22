@@ -5,9 +5,12 @@ import {
   computeChain,
   connected,
   DIRS,
+  diagonalCells,
   dirsLighting,
   hasExit,
   isGate,
+  isMournerPit,
+  isolatedPrisoners,
   keeperRotFacing,
   keeperTop,
   kindDef,
@@ -20,6 +23,8 @@ import {
   reachable,
   rotationsWithExit,
   sightDirs,
+  squareCells,
+  squareOrigins,
   tileAt,
   turnOrderFrom,
   uniqueCells,
@@ -46,7 +51,7 @@ import type {
 } from './types';
 import { validateAction } from './validate';
 
-export const ENGINE_VERSION = '0.1.0';
+export const ENGINE_VERSION = '0.2.0';
 
 type Gen<T = void> = Generator<Decision, T, Action>;
 
@@ -119,6 +124,8 @@ export class Game {
   private readonly gen: Gen;
   /** Клетки монстров, которые уберутся, когда стоящий на них узник уйдёт. */
   private readonly pendingRemoval = new Set<Cell>();
+  /** Предвестники Плакальщика, открытые при сбросе из запаса: ждут выкладки после атаки. */
+  private readonly heraldQueue: { tile: number; prisoner: number | null }[] = [];
 
   /**
    * @param initial готовое состояние в фазе 'play' — для сценарных тестов;
@@ -301,6 +308,7 @@ export class Game {
       }
     } else if (s.endBearerActive) {
       this.discardFromPile(1, null);
+      yield* this.flushHeralds();
       if (s.pile.length === 0 && !s.lastFlicker) {
         s.lastFlicker = true;
         this.emit({ type: 'lastFlicker' });
@@ -396,7 +404,7 @@ export class Game {
 
     if (!tileAt(s, to)) {
       // Вход в пустую клетку: тянем плитку только для неё.
-      const tile = this.draw();
+      const tile = this.drawForPlacement();
       if (tile === null) return;
       const back = opposite(dir);
       const def = kindDef(s, tile);
@@ -409,7 +417,9 @@ export class Game {
         reason: 'darkMove',
         options: [{ cell: to, rotations }],
       }) as Extract<Action, { type: 'placeTile' }>;
-      this.place(to, tile, a.rot, p.id);
+      yield* this.placeAndTrigger(to, tile, a.rot, p.id, p);
+      // Исчадие или Плакальщик могли уронить самого узника.
+      if (p.cell !== from) return;
     }
 
     p.cell = to;
@@ -514,9 +524,16 @@ export class Game {
         s.turn.gainedResolve = true;
         this.emit({ type: 'resolveGained', prisoner: p.id });
       }
-      const tile = this.draw();
+      const tile = this.drawForPlacement();
       if (tile !== null) {
-        if (kindDef(s, tile).monster) yield* this.stayMonster(p, tile);
+        if (s.tiles[tile] === 'lightEater') {
+          // Трактовка E6: срабатывает и уходит в сброс — клетки для него нет.
+          yield* this.lightEaterStrikes(null, p.id, null);
+          s.discard.push(tile);
+          s.stats.pileDiscarded += 1;
+          this.emit({ type: 'pileDiscarded', tiles: [tile], prisoner: p.id });
+          this.checkLoss();
+        } else if (kindDef(s, tile).monster) yield* this.stayMonster(p, tile, p.id);
         else {
           s.discard.push(tile);
           s.stats.pileDiscarded += 1;
@@ -536,13 +553,22 @@ export class Game {
     }
   }
 
-  /** Монстр, вытянутый при «остаться на месте», заменяет соседнюю плитку (§6.3). */
-  private *stayMonster(p: Prisoner, tile: number): Gen {
+  /**
+   * Монстр, вытянутый при «остаться на месте», заменяет соседнюю плитку (§6.3).
+   * Так же выкладывается предвестник Плакальщика, открытый при сбросе (трактовка E2).
+   */
+  private *stayMonster(p: Prisoner, tile: number, decider: number): Gen {
     const s = this.state;
     const cell = p.cell as Cell;
     const around = DIRS.filter((d) => hasExit(s, cell, d))
       .map((d) => neighbor(s.size, cell, d))
-      .filter((c, i, arr) => arr.indexOf(c) === i && c !== cell && tileAt(s, c) !== null);
+      .filter(
+        (c, i, arr) =>
+          arr.indexOf(c) === i &&
+          c !== cell &&
+          tileAt(s, c) !== null &&
+          !isMournerPit(tileAt(s, c)),
+      );
     const free = around.filter((c) => !monsterAt(s, c) && prisonersAt(s, c).length === 0);
     const occupied = around.filter((c) => !monsterAt(s, c) && prisonersAt(s, c).length > 0);
     const monsters = around.filter((c) => !!monsterAt(s, c));
@@ -562,13 +588,13 @@ export class Game {
     });
     const a = (yield {
       kind: 'placeTile',
-      prisoner: p.id,
+      prisoner: decider,
       tile,
-      reason: 'stayMonster',
+      reason: s.tiles[tile] === 'herald' ? 'herald' : 'stayMonster',
       options,
     }) as Extract<Action, { type: 'placeTile' }>;
     this.discardTileAt(a.cell, 'replaced');
-    this.place(a.cell, tile, a.rot, p.id);
+    yield* this.placeAndTrigger(a.cell, tile, a.rot, decider, null);
     const victims = prisonersAt(s, a.cell);
     if (victims.length > 0 && sightDirs(s, a.cell).length > 0) {
       yield* this.resolveAttacks([a.cell]);
@@ -627,7 +653,7 @@ export class Game {
         cells: empty,
         draw: true,
       }) as Extract<Action, { type: 'landingCell' }>;
-      const tile = this.draw();
+      const tile = this.drawForPlacement();
       if (tile === null) this.lose('fellNoTiles');
       const r = (yield {
         kind: 'placeTile',
@@ -636,7 +662,7 @@ export class Game {
         reason: 'landing',
         options: [{ cell: a.cell, rotations: ALL_ROTS }],
       }) as Extract<Action, { type: 'placeTile' }>;
-      this.place(a.cell, tile as number, r.rot, p.id);
+      yield* this.placeAndTrigger(a.cell, tile as number, r.rot, p.id, p);
       cell = a.cell;
     } else {
       let options = cells.filter(
@@ -658,7 +684,9 @@ export class Game {
     this.emit({ type: 'landed', prisoner: p.id, cell });
     const bt = tileAt(s, cell);
     if (bt?.pit) {
+      // Приземлился в яму (исчадие, Плакальщик, пожиратель света) — падает снова.
       yield* this.startFall(p, cell, []);
+      yield* this.lightAndDark();
       return;
     }
     this.pickKey(p, cell);
@@ -666,6 +694,9 @@ export class Game {
     if (monster === 'keyKeeper') {
       yield* this.resolveAttacks([cell]);
       if (p.cell === cell) yield* this.leaveKeeper(p, cell);
+    } else if (monster === 'pathBreaker') {
+      // Прерыватель бьёт вдоль выбранной линии падения.
+      yield* this.resolveAttacks([cell], new Map([[cell, line.axis === 'row' ? 1 : 0]]));
     } else if (monster && sightDirs(s, cell).length > 0) {
       yield* this.resolveAttacks([cell]);
       if (p.cell === cell) yield* this.forcedMove(p);
@@ -677,14 +708,18 @@ export class Game {
 
   // ───────────────────────── атаки ─────────────────────────
 
-  private *resolveAttacks(provoked: Cell[]): Gen {
+  /**
+   * Разрешить атаки спровоцированных монстров (docs/spec/01-rules.md §5.3).
+   * axes — направление атаки прерывателя пути, если оно не по оси его лиц.
+   */
+  private *resolveAttacks(provoked: Cell[], axes?: ReadonlyMap<Cell, Dir>): Gen {
     const s = this.state;
     // Монстр, уже атаковавший и ждущий ухода узника со своей клетки, больше не активен.
     const valid = uniqueCells(provoked).filter(
       (c) => sightDirs(s, c).length > 0 && !this.pendingRemoval.has(c),
     );
     if (valid.length === 0) return;
-    const chain = computeChain(s, valid, this.pendingRemoval);
+    const chain = computeChain(s, valid, this.pendingRemoval, axes);
     for (const m of chain.monsters) {
       const bt = tileAt(s, m);
       s.stats.attacks += 1;
@@ -699,43 +734,264 @@ export class Game {
     for (const hit of chain.hits) {
       const q = s.prisoners[hit.prisoner] as Prisoner;
       const kind = monsterAt(s, hit.monsterCell);
-      let amount = 3;
-      let canDodge = true;
-      if (kind === 'keyKeeper' && q.cell !== hit.monsterCell) {
-        amount = 1;
-        canDodge = false;
-      } else if (kind === 'inevitable') {
-        amount = 5;
-        canDodge = false;
-      }
-      if (canDodge && amount === 3 && this.spendable(q) > 0 && s.pile.length >= 3) {
-        const a = (yield {
-          kind: 'dodge',
-          prisoner: q.id,
-          monsterCell: hit.monsterCell,
-          amount,
-        }) as Extract<Action, { type: 'dodge' }>;
-        if (a.use) {
-          this.spendResolve(q, 1, 'dodge');
-          amount = 2;
+      if (kind === 'pathBreaker') {
+        if (q.cell === hit.monsterCell) {
+          // Узник на самом прерывателе сбрасывает 3, свеча не гаснет; затем он упадёт.
+          yield* this.strike(q, hit.monsterCell, 3, true, false);
+        } else {
+          // Остальных задевает обрушение ряда: они упадут вместе с плитками.
+          s.stats.hits += 1;
+          this.emit({ type: 'hit', prisoner: q.id, monsterCell: hit.monsterCell, discard: 0 });
         }
+      } else if (kind === 'keyKeeper' && q.cell !== hit.monsterCell) {
+        yield* this.strike(q, hit.monsterCell, 1, false);
+      } else if (kind === 'inevitable') {
+        yield* this.strike(q, hit.monsterCell, 5, false);
+      } else {
+        yield* this.strike(q, hit.monsterCell, 3, true);
       }
-      s.stats.hits += 1;
-      this.emit({ type: 'hit', prisoner: q.id, monsterCell: hit.monsterCell, discard: amount });
-      this.discardFromPile(amount, q.id);
-      if (q.lit) {
-        q.lit = false;
-        this.emit({ type: 'extinguished', prisoner: q.id });
+    }
+    // Ряды прерывателей проваливаются, затем уходят остальные монстры.
+    const pitted: Cell[] = [];
+    const breakers = chain.monsters.filter((m) => monsterAt(s, m) === 'pathBreaker');
+    const seen = this.seenSnapshot(
+      uniqueCells(breakers.flatMap((m) => [m, ...(chain.areas.get(m) ?? [])])),
+      chain.monsters,
+    );
+    const lit = litCells(s);
+    for (const m of breakers) {
+      for (const c of chain.areas.get(m) ?? []) {
+        if (this.flipToPit(c, 'pathBreaker')) pitted.push(c);
+      }
+      if (prisonersAt(s, m).length > 0 || lit.has(m)) {
+        if (this.flipToPit(m, 'pathBreaker')) pitted.push(m);
+      } else {
+        this.discardTileAt(m, 'monster');
       }
     }
     for (const m of chain.monsters) {
       const kind = monsterAt(s, m);
-      if (kind === 'keyKeeper') continue;
+      if (!kind || kind === 'keyKeeper' || kind === 'pathBreaker') continue;
       if (prisonersAt(s, m).length > 0) this.pendingRemoval.add(m);
       else this.discardTileAt(m, 'monster');
     }
     this.relight();
     this.checkLoss();
+    yield* this.dropPrisoners(pitted, seen);
+    yield* this.flushHeralds();
+  }
+
+  /** Попадание по узнику: сброс из запаса (с уклонением за решимость) и гаснущая свеча. */
+  private *strike(
+    q: Prisoner,
+    source: Cell,
+    amount: number,
+    canDodge: boolean,
+    extinguish = true,
+  ): Gen {
+    const s = this.state;
+    let discard = amount;
+    if (canDodge && amount === 3 && this.spendable(q) > 0 && s.pile.length >= 3) {
+      const a = (yield {
+        kind: 'dodge',
+        prisoner: q.id,
+        monsterCell: source,
+        amount,
+      }) as Extract<Action, { type: 'dodge' }>;
+      if (a.use) {
+        this.spendResolve(q, 1, 'dodge');
+        discard = 2;
+      }
+    }
+    s.stats.hits += 1;
+    this.emit({ type: 'hit', prisoner: q.id, monsterCell: source, discard });
+    this.discardFromPile(discard, q.id);
+    if (extinguish && q.lit) {
+      q.lit = false;
+      this.emit({ type: 'extinguished', prisoner: q.id });
+    }
+  }
+
+  // ───────────────────────── особые монстры ─────────────────────────
+
+  /**
+   * Тянуть плитку для выкладки. Отложенные предвестники сразу заменяются
+   * следующей плиткой; предвестник, вызывающий Плакальщика, выкладывается.
+   */
+  private drawForPlacement(): number | null {
+    for (;;) {
+      const tile = this.draw();
+      if (tile === null || this.state.tiles[tile] !== 'herald') return tile;
+      if (this.revealHerald(tile) === 'mourner') return tile;
+    }
+  }
+
+  /** Открыт предвестник (docs/spec/02-extended-rules.md §3.2, §4.3). */
+  private revealHerald(tile: number): 'aside' | 'mourner' {
+    const s = this.state;
+    s.heraldsRevealed += 1;
+    const n = s.heraldsRevealed;
+    if (s.config.mourner && n === 2) return 'mourner';
+    s.aside.push(tile);
+    this.emit({ type: 'heraldSetAside', tile, count: n });
+    if (s.config.endBearer && n === 5) {
+      s.endBearerActive = true;
+      this.emit({ type: 'endBearerArrived' });
+    }
+    return 'aside';
+  }
+
+  /** Предвестники Плакальщика, открытые при сбросе, заменяют плитку рядом с узником. */
+  private *flushHeralds(): Gen {
+    const s = this.state;
+    while (this.heraldQueue.length > 0) {
+      const { tile, prisoner } = this.heraldQueue.shift() as {
+        tile: number;
+        prisoner: number | null;
+      };
+      s.aside.splice(s.aside.indexOf(tile), 1);
+      const owner = prisoner === null ? null : (s.prisoners[prisoner] as Prisoner);
+      // Узник, чей сброс открыл предвестника; если он уже упал — активный.
+      const anchor = [owner, this.active()].find((q) => q && q.cell !== null) ?? null;
+      if (!anchor) {
+        s.discard.push(tile);
+        this.emit({ type: 'pileDiscarded', tiles: [tile], prisoner });
+        continue;
+      }
+      yield* this.stayMonster(anchor, tile, s.turn.active);
+    }
+  }
+
+  /**
+   * Положить плитку и применить её свойство «при выкладке».
+   * entrant — узник, который сразу встанет на неё (вход в темноте, приземление).
+   */
+  private *placeAndTrigger(
+    cell: Cell,
+    tile: number,
+    rot: Rot,
+    decider: number,
+    entrant: Prisoner | null,
+  ): Gen {
+    this.place(cell, tile, rot, decider);
+    switch (this.state.tiles[tile]) {
+      case 'darkSpawn':
+        yield* this.spawnDarkness(cell);
+        break;
+      case 'herald':
+        yield* this.summonMourner(cell, decider);
+        break;
+      case 'lightEater':
+        yield* this.lightEaterStrikes(cell, decider, entrant);
+        break;
+      default:
+        break;
+    }
+  }
+
+  /** Исчадие тьмы: диагонали до края поля и оно само становятся ямами (§2.2). */
+  private *spawnDarkness(cell: Cell): Gen {
+    const s = this.state;
+    const cells = [...diagonalCells(s.size, cell), cell];
+    const seen = this.seenSnapshot(cells, []);
+    const pitted = cells.filter((c) => this.flipToPit(c, 'spawn'));
+    yield* this.dropPrisoners(pitted, seen);
+  }
+
+  /** Плакальщик накрывает предвестника жетоном 3×3 (§3.2). */
+  private *summonMourner(heraldCell: Cell, decider: number): Gen {
+    const s = this.state;
+    const origins = squareOrigins(s.size, heraldCell);
+    const a = (yield {
+      kind: 'mournerPlacement',
+      prisoner: decider,
+      heraldCell,
+      origins,
+    }) as Extract<Action, { type: 'mournerPlacement' }>;
+    const cells = squareCells(s.size, a.origin);
+    const seen = this.seenSnapshot(cells, []);
+    for (const [c, monsters] of seen) {
+      seen.set(
+        c,
+        monsters.filter((m) => !cells.includes(m)),
+      );
+    }
+    this.emit({ type: 'mournerPlaced', origin: a.origin, cells });
+    for (const c of cells) this.discardTileAt(c, 'mourner');
+    for (const c of cells) s.board[c] = { tile: -1, rot: 0, pit: true, mournerPit: 1 };
+    for (const pi of turnOrderFrom(s, s.turn.active)) {
+      const q = s.prisoners[pi] as Prisoner;
+      if (q.cell !== null && cells.includes(q.cell)) yield* this.strike(q, heraldCell, 3, true);
+    }
+    this.checkLoss();
+    yield* this.dropPrisoners(cells, seen);
+  }
+
+  /**
+   * Пожиратель света гасит свечу изолированного узника (§4.1). Если на него
+   * вошёл узник, гаснет и его свеча, а плитка становится ямой.
+   */
+  private *lightEaterStrikes(cell: Cell | null, decider: number, entrant: Prisoner | null): Gen {
+    const s = this.state;
+    if (entrant?.lit) {
+      entrant.lit = false;
+      this.emit({ type: 'extinguished', prisoner: entrant.id });
+    }
+    const targets = isolatedPrisoners(s).filter((id) => id !== entrant?.id);
+    let target: number | null = targets[0] ?? null;
+    if (targets.length > 1) {
+      const a = (yield { kind: 'lightEaterTarget', prisoner: decider, cell, targets }) as Extract<
+        Action,
+        { type: 'lightEaterTarget' }
+      >;
+      target = a.prisoner;
+    }
+    this.emit({ type: 'lightEaten', cell, prisoner: target });
+    if (target !== null) {
+      const q = s.prisoners[target] as Prisoner;
+      q.lit = false;
+      this.emit({ type: 'extinguished', prisoner: q.id });
+    }
+    if (cell === null) return;
+    if (entrant || litCells(s).has(cell)) this.flipToPit(cell, 'lightEater');
+    else this.discardTileAt(cell, 'monster');
+  }
+
+  /** Перевернуть плитку ямой. Возвращает true, если клетка стала ямой сейчас. */
+  private flipToPit(
+    cell: Cell,
+    cause: Extract<GameEvent, { type: 'pitOpened' }>['cause'],
+  ): boolean {
+    const bt = tileAt(this.state, cell);
+    if (!bt || bt.pit) return false;
+    bt.pit = true;
+    this.pendingRemoval.delete(cell);
+    this.emit({ type: 'pitOpened', cell, cause });
+    return true;
+  }
+
+  /** Какие монстры видят клетки с узниками — до того, как поле изменится. */
+  private seenSnapshot(cells: Cell[], exclude: Cell[]): Map<Cell, Cell[]> {
+    const s = this.state;
+    const out = new Map<Cell, Cell[]>();
+    for (const c of cells) {
+      if (prisonersAt(s, c).length === 0) continue;
+      out.set(
+        c,
+        monstersSeeing(s, c).filter((m) => !exclude.includes(m)),
+      );
+    }
+    return out;
+  }
+
+  /** Узники на клетках, ставших ямами, падают по порядку хода (падение провоцирует монстров). */
+  private *dropPrisoners(cells: Cell[], seen: Map<Cell, Cell[]>): Gen {
+    const s = this.state;
+    for (const pi of turnOrderFrom(s, s.turn.active)) {
+      const q = s.prisoners[pi] as Prisoner;
+      if (q.cell === null || !cells.includes(q.cell) || !tileAt(s, q.cell)?.pit) continue;
+      yield* this.startFall(q, q.cell, seen.get(q.cell) ?? []);
+    }
   }
 
   // ───────────────────────── свет ─────────────────────────
@@ -760,7 +1016,7 @@ export class Game {
       if (q.cell === null || !q.lit || s.pile.length === 0) return;
       const targets = uniqueCells(cellsLitBy(s, q)).filter((c) => c !== q.cell && !tileAt(s, c));
       if (targets.length === 0) return;
-      const tile = this.draw();
+      const tile = this.drawForPlacement();
       if (tile === null) return;
       const def = kindDef(s, tile);
       const options: PlacementOption[] = targets.map((cell) => {
@@ -775,21 +1031,32 @@ export class Game {
         kind: 'placeTile',
         prisoner: decider,
         tile,
-        reason,
+        reason: s.tiles[tile] === 'herald' ? 'herald' : reason,
         options,
       }) as Extract<Action, { type: 'placeTile' }>;
-      this.place(a.cell, tile, a.rot, decider);
+      yield* this.placeAndTrigger(a.cell, tile, a.rot, decider, null);
     }
   }
 
   private discardUnlit(): void {
     const s = this.state;
     const lit = litCells(s);
+    const mourner: Cell[] = [];
     s.board.forEach((bt, c) => {
-      if (!bt || lit.has(c)) return;
+      if (!bt) return;
+      if (isMournerPit(bt)) {
+        mourner.push(c);
+        return;
+      }
+      if (lit.has(c)) return;
       if (!bt.pit && monsterAt(s, c) === 'keyKeeper') return;
       this.discardTileAt(c, 'unlit');
     });
+    // Яма Плакальщика исчезает целиком, когда ни одна её клетка не освещена.
+    if (mourner.length > 0 && !mourner.some((c) => lit.has(c))) {
+      for (const c of mourner) s.board[c] = null;
+      this.emit({ type: 'mournerPitRemoved', cells: mourner });
+    }
     if (s.phase === 'play') this.checkLoss();
   }
 
@@ -871,6 +1138,7 @@ export class Game {
     const bt = tileAt(s, cell);
     if (!bt) return;
     s.board[cell] = null;
+    if (isMournerPit(bt)) return;
     s.discard.push(bt.tile);
     this.pendingRemoval.delete(cell);
     this.emit({ type: 'tileDiscarded', cell, tile: bt.tile, reason });
@@ -879,9 +1147,18 @@ export class Game {
   private discardFromPile(n: number, prisoner: number | null): void {
     const s = this.state;
     const out: number[] = [];
-    for (let i = 0; i < n; i++) {
+    while (out.length < n) {
       const t = s.pile.pop();
       if (t === undefined) break;
+      if (s.tiles[t] === 'herald') {
+        // Предвестник не сгорает: его откладывают, вместо него уходит следующая плитка.
+        if (this.revealHerald(t) === 'mourner') {
+          // До выкладки он лежит рядом с полем.
+          s.aside.push(t);
+          this.heraldQueue.push({ tile: t, prisoner });
+        }
+        continue;
+      }
       out.push(t);
       s.discard.push(t);
     }

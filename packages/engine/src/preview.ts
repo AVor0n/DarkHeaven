@@ -24,6 +24,8 @@ export interface PreviewHit {
   /** Сколько плиток уйдёт из запаса без уклонения. */
   amount: number;
   dodgeable: boolean;
+  /** Прерыватель пути: плитка под узником провалится, узник упадёт. */
+  drops?: boolean;
 }
 
 export interface MovePreview {
@@ -76,6 +78,17 @@ function fillAttacks(s: GameState, provoked: Cell[], out: MovePreview): void {
     const kind = monsterAt(s, h.monsterCell);
     let amount = 3;
     let dodgeable = true;
+    if (kind === 'pathBreaker') {
+      const onIt = q.cell === h.monsterCell;
+      out.hits.push({
+        prisoner: h.prisoner,
+        monsterCell: h.monsterCell,
+        amount: onIt ? 3 : 0,
+        dodgeable: onIt,
+        drops: true,
+      });
+      continue;
+    }
     if (kind === 'keyKeeper' && q.cell !== h.monsterCell) {
       amount = 1;
       dodgeable = false;
