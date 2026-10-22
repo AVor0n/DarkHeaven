@@ -5,3 +5,23 @@
 поглощает пройденные коридоры.
 
 Спецификация: [docs/spec](docs/spec/README.md).
+
+Играть: https://avor0n.github.io/DarkHeaven/
+
+## Разработка
+
+```sh
+pnpm install
+pnpm dev        # локальный сервер
+pnpm lint       # Biome
+pnpm typecheck
+pnpm test       # движок и логика интерфейса (Vitest)
+pnpm e2e        # сквозные тесты и проверка доступности (Playwright + axe)
+```
+
+- `packages/engine` — правила игры без интерфейса: детерминированный движок,
+  реплеи, превью ходов.
+- `apps/web` — React-приложение; сайт собирается и публикуется на GitHub Pages
+  при каждом пуше в `main`.
+- `scripts/` — генерация гравюр и звуков через kie.ai (ключ — переменная
+  окружения `KIE_API_KEY`) и их обработка.

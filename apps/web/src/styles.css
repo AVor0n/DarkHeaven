@@ -241,6 +241,16 @@ h3 {
   color: var(--wax);
 }
 
+/* Текст только для экранных дикторов. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
 .form {
   display: flex;
   flex-direction: column;
@@ -1058,6 +1068,14 @@ h3 {
   animation: danger 0.8s ease-in-out infinite;
 }
 
+.token__body--move {
+  animation: token-move 0.32s cubic-bezier(0.3, 0.7, 0.3, 1) both;
+}
+
+.token__body--land {
+  animation: token-land 0.45s cubic-bezier(0.2, 0.8, 0.3, 1.2) both;
+}
+
 .candle {
   display: block;
   overflow: visible;
@@ -1275,6 +1293,19 @@ h3 {
   100% {
     opacity: 0;
     transform: translateY(-6px);
+  }
+}
+
+@keyframes token-move {
+  from {
+    transform: translate(calc(var(--fx) * var(--cs)), calc(var(--fy) * var(--cs)));
+  }
+}
+
+@keyframes token-land {
+  from {
+    opacity: 0;
+    transform: translateY(-60%) scale(1.5);
   }
 }
 

@@ -1,6 +1,7 @@
 import {
   type Action,
   type Cell,
+  cellXY,
   type Dir,
   type MovePreview,
   monsterAt,
@@ -12,7 +13,7 @@ import {
 } from '@darkheaven/engine';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { playEvents } from '../audio/sound';
-import { Board } from '../board/Board';
+import { Board, type TokenMotion } from '../board/Board';
 import { TileSvg } from '../board/Tile';
 import { PRISONER_NAMES, playerName, TILE_NAMES } from '../i18n/ru';
 import { SettingsPanel } from '../screens/SettingsPanel';
@@ -118,6 +119,25 @@ export function GameScreen({ onMenu }: { onMenu(): void }) {
     const t = setTimeout(() => setFlash(EMPTY), ms);
     return () => clearTimeout(t);
   }, [rev]);
+
+  // Перемещения фишек в последней партии событий: фишка выезжает из прежней клетки.
+  const size = view?.size ?? 0;
+  const motion = useMemo(() => {
+    const out = new Map<number, TokenMotion>();
+    const wrap = (d: number) => ((((d + size / 2) % size) + size) % size) - size / 2;
+    for (const e of events.slice(batchStart)) {
+      if (e.type === 'moved') {
+        const [fx, fy] = cellXY(size, e.from);
+        const [tx, ty] = cellXY(size, e.to);
+        out.set(e.prisoner, { kind: 'move', dx: wrap(fx - tx), dy: wrap(fy - ty) });
+      } else if (e.type === 'landed') {
+        out.set(e.prisoner, { kind: 'land', dx: 0, dy: 0 });
+      } else if (e.type === 'fell') {
+        out.delete(e.prisoner);
+      }
+    }
+    return out;
+  }, [events, batchStart, size]);
 
   // Плашка «Ход Ольги» при смене игрока в хотсите.
   const lastDecider = useRef<number | null>(null);
@@ -357,6 +377,7 @@ export function GameScreen({ onMenu }: { onMenu(): void }) {
   return (
     <div className="game">
       <header className="game__header">
+        <h1 className="sr-only">Обитель тьмы: партия</h1>
         <div className="game__turn">
           {view.turn.number > 0 && <span className="game__turnNo">Ход {view.turn.number}</span>}
           {active && view.phase === 'play' && (
@@ -393,7 +414,7 @@ export function GameScreen({ onMenu }: { onMenu(): void }) {
         </div>
       </header>
 
-      <aside className="game__left">
+      <aside className="game__left" aria-label="Узники">
         <PrisonersPanel
           view={view}
           deciding={pending?.prisoner ?? null}
@@ -433,6 +454,7 @@ export function GameScreen({ onMenu }: { onMenu(): void }) {
           focus={stableFocus.current}
           followCamera={settings.followCamera}
           flash={flash}
+          motion={motion}
           onCellClick={onCellClick}
           onCellHover={setHover}
           onWheel={(dy) => {
@@ -442,7 +464,7 @@ export function GameScreen({ onMenu }: { onMenu(): void }) {
         {banner && <div className="banner">{banner}</div>}
       </main>
 
-      <aside className="game__right">
+      <aside className="game__right" aria-label="Запас и журнал">
         <PileCandle view={view} />
         <DiscardSummary view={view} />
         <EventLog

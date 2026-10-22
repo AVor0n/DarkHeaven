@@ -32,6 +32,14 @@ export type TargetKind =
   | 'land'
   | 'discard';
 
+/** Как фишка появилась в клетке в последней партии событий (для анимации). */
+export interface TokenMotion {
+  kind: 'move' | 'land';
+  /** Откуда пришла фишка, в клетках относительно новой клетки. */
+  dx: number;
+  dy: number;
+}
+
 export interface Ghost {
   cell: Cell;
   kind: TileKind;
@@ -55,6 +63,7 @@ export interface BoardProps {
   followCamera: boolean;
   /** Клетки, по которым только что прошла атака (вспышка). */
   flash: Set<Cell>;
+  motion: Map<number, TokenMotion>;
   onCellClick(cell: Cell): void;
   onCellHover(cell: Cell | null): void;
   onWheel?(delta: number): void;
@@ -88,6 +97,7 @@ const CellView = memo(function CellView({
   flash,
   endangered,
   mourner,
+  motion,
 }: {
   view: GameState;
   cell: Cell;
@@ -101,6 +111,7 @@ const CellView = memo(function CellView({
   endangered: Set<number>;
   /** Положение клетки внутри ямы Плакальщика. */
   mourner: readonly [number, number] | null;
+  motion: Map<number, TokenMotion>;
 }) {
   const bt = view.board[cell];
   const prisoners = view.prisoners.filter((p) => p.cell === cell);
@@ -131,11 +142,19 @@ const CellView = memo(function CellView({
       )}
       {prisoners.length > 0 && (
         <div className={`cell__prisoners cell__prisoners--${Math.min(prisoners.length, 4)}`}>
-          {prisoners.map((p: Prisoner) => (
-            <div key={p.id} className={`token ${endangered.has(p.id) ? 'token--danger' : ''}`}>
-              <CandleToken prisoner={p} active={view.turn.active === p.id} />
-            </div>
-          ))}
+          {prisoners.map((p: Prisoner) => {
+            const m = motion.get(p.id);
+            return (
+              <div key={p.id} className={`token ${endangered.has(p.id) ? 'token--danger' : ''}`}>
+                <div
+                  className={m ? `token__body token__body--${m.kind}` : 'token__body'}
+                  style={m ? ({ '--fx': m.dx, '--fy': m.dy } as CSSProperties) : undefined}
+                >
+                  <CandleToken prisoner={p} active={view.turn.active === p.id} />
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </>
@@ -274,6 +293,7 @@ export function Board(props: BoardProps) {
                       inLine={lineCells.has(cell)}
                       flash={props.flash.has(cell)}
                       endangered={props.endangered}
+                      motion={props.motion}
                       mourner={
                         mournerOrigin && view.board[cell]?.mournerPit
                           ? [x - mournerOrigin[0], y - mournerOrigin[1]]

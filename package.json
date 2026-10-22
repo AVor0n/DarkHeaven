@@ -13,7 +13,8 @@
     "format": "biome check --write .",
     "typecheck": "pnpm -r typecheck",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "e2e": "pnpm --filter @darkheaven/web e2e"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.2",

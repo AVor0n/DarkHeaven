@@ -10,3 +10,7 @@ assets-private/
 
 # сырые результаты генерации (обработанные лежат в apps/web/public/assets)
 assets-raw/
+
+# отчёты Playwright
+test-results/
+playwright-report/

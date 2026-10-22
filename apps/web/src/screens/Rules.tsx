@@ -16,7 +16,7 @@ function Tile({
 
 export function Rules({ onBack }: { onBack(): void }) {
   return (
-    <div className="page rules">
+    <main className="page rules">
       <header className="page__header">
         <button type="button" className="btn btn--ghost" onClick={onBack}>
           ← Назад
@@ -268,6 +268,6 @@ export function Rules({ onBack }: { onBack(): void }) {
           </div>
         </dl>
       </section>
-    </div>
+    </main>
   );
 }
